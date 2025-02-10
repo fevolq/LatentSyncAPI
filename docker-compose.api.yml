@@ -1,0 +1,23 @@
+version: '3.9'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    image: latentsync:${IMAGE_TAG:-api}
+    ports:
+      - "${EXPOSE_PORT:-7860}:7860"
+    environment:
+      - WORKERS=${WORKERS:-1}
+    volumes:
+      - ${CHECKPOINTS:-./checkpoints}:/LatentSync/checkpoints
+      - ${DATA:-./data}:/LatentSync/data
+    restart: on-failure
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: [ '${DEVICE:-0}' ]
+              capabilities: [ gpu ]

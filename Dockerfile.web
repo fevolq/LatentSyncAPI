@@ -1,0 +1,34 @@
+FROM nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libavutil-dev \
+    libavcodec-dev \
+    libavformat-dev \
+    libswscale-dev \
+    pkg-config \
+    build-essential \
+    libffi-dev \
+    ffmpeg \
+    libgl1-mesa-glx \
+    curl \
+    python3.10 \
+    python-is-python3 \
+    pip \
+    cmake
+
+WORKDIR /LatentSync
+
+COPY requirements.txt /LatentSync
+
+RUN pip install -r requirements.txt
+
+COPY . /LatentSync
+
+RUN mkdir -p ./checkpoints
+ENV TORCH_HOME=/LatentSync/checkpoints/.cache/torch/hub/checkpoints
+
+EXPOSE 7860
+
+ENV GRADIO_SERVER_NAME=0.0.0.0
+
+CMD python gradio_app.py
