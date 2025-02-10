@@ -25,7 +25,11 @@ RUN pip install -r requirements.txt
 COPY . /LatentSync
 
 RUN mkdir -p ./checkpoints
-ENV TORCH_HOME=/LatentSync/checkpoints/.cache/torch/hub/checkpoints
+# 设置 PyTorch 的缓存路径
+ENV TORCH_HOME=/LatentSync/checkpoints/.cache/torch
+
+# 设置 Hugging Face 的缓存路径
+ENV HF_HOME=/LatentSync/checkpoints/.cache/huggingface
 
 EXPOSE 7860
 
