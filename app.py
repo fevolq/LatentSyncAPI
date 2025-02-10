@@ -18,11 +18,15 @@ from starlette.responses import FileResponse, JSONResponse
 
 from scripts import inference
 
-
+WORKERS = max(int(os.getenv('WORKERS', 1)), 1)
 INPUT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), './data/input'))
 OUTPUT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), './data/output'))
-print(f'INPUT_DIR: {INPUT_DIR}')
-print(f'OUTPUT_DIR: {OUTPUT_DIR}')
+print(
+    f'【当前配置】\n'
+    f'并发：{WORKERS}\n'
+    f'INPUT_DIR: {INPUT_DIR}\n'
+    f'OUTPUT_DIR: {OUTPUT_DIR}'
+)
 
 
 @asynccontextmanager
@@ -36,7 +40,7 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
-executor = ThreadPoolExecutor(max_workers=max(int(os.getenv('WORKERS', 1)), 1))
+executor = ThreadPoolExecutor(max_workers=WORKERS)
 
 
 @app.get("/")
@@ -159,6 +163,7 @@ def prepare(req: Inference) -> tuple:
 
 @app.post("/inference", description='推理。阻塞等待模式')
 async def inference_(req: Inference):
+    print(f'接收请求：{req.video}, {req.audio}')
     options, output_name = prepare(req)
     config = OmegaConf.load(Path("configs/unet/second_stage.yaml"))
 
