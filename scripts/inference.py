@@ -13,6 +13,10 @@
 # limitations under the License.
 
 import argparse
+import os
+import tempfile
+import time
+
 from omegaconf import OmegaConf
 import torch
 from diffusers import AutoencoderKL, DDIMScheduler
@@ -21,6 +25,7 @@ from latentsync.pipelines.lipsync_pipeline import LipsyncPipeline
 from diffusers.utils.import_utils import is_xformers_available
 from accelerate.utils import set_seed
 from latentsync.whisper.audio2feature import Audio2Feature
+from latentsync.utils.video_extension import process as loop_video
 
 
 def main(config, args):
@@ -31,6 +36,10 @@ def main(config, args):
     print(f"Input video path: {args.video_path}")
     print(f"Input audio path: {args.audio_path}")
     print(f"Loaded checkpoint path: {args.inference_ckpt_path}")
+    loop_video_path = os.path.join(tempfile.gettempdir(),
+                                      f'loop_{int(time.time() * 1000)}_{os.path.basename(args.video_path)}')
+    loop_video(audio_file=args.audio_path, video_file=args.video_path, output_file=loop_video_path)
+    args.video_path = loop_video_path
 
     scheduler = DDIMScheduler.from_pretrained("configs")
 
@@ -85,6 +94,7 @@ def main(config, args):
         width=config.data.resolution,
         height=config.data.resolution,
     )
+    os.remove(loop_video_path)
 
 
 if __name__ == "__main__":

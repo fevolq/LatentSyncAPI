@@ -167,6 +167,7 @@ async def inference_(req: Inference):
     options, output_name = prepare(req)
     config = OmegaConf.load(Path("configs/unet/second_stage.yaml"))
 
+    # inference.main(config, SimpleNamespace(**options))
     loop = asyncio.get_event_loop()
     await loop.run_in_executor(executor, inference.main, config, SimpleNamespace(**options))
 
