@@ -263,9 +263,7 @@ class LipsyncPipeline(DiffusionPipeline):
         return images
 
     def affine_transform_video(self, video_path, pth_path=''):
-        faces = []
-        boxes = []
-        affine_matrices = []
+        faces, boxes, affine_matrices = [], [], []
 
         def affine_transform(frames):
             for frame in tqdm.tqdm(frames):
@@ -275,31 +273,33 @@ class LipsyncPipeline(DiffusionPipeline):
                 affine_matrices.append(affine_matrix)
 
         video_frames = read_video(video_path, use_decord=False)
-        flag = False
         if pth_path and os.path.exists(pth_path):
             print(f'Loading affine transform record: {pth_path}')
-            data = torch.load(pth_path)
-            if len(video_frames) <= len(data['video_frames']):    # 视频帧数 < pth中的帧数
-                print(f"Affine find {len(video_frames)} faces...")
-                flag = True
-                faces, video_frames, boxes, affine_matrices =\
-                    data['faces'], data['video_frames'], data['boxes'], data['affine_matrices']
-        if not flag:
-            print(f"Affine transforming {len(video_frames)} faces...")
-            affine_transform(video_frames)
-            faces = torch.stack(faces)
-            if is_valid_filepath(pth_path):
-                print(f"Saving affine transform record to {pth_path}")
-                torch.save(
-                    {
-                        'faces': faces,
-                        'video_frames': video_frames,
-                        'boxes': boxes,
-                        'affine_matrices': affine_matrices
-                    },
-                    pth_path,
-                    pickle_protocol=pickle.HIGHEST_PROTOCOL  # 设置为最高协议版本，避免文件过大导致的失败
-                )
+            try:
+                data = torch.load(pth_path, pickle_module=pickle, map_location=lambda storage, loc: storage)
+                if len(video_frames) <= len(data['video_frames']):    # 视频帧数 < pth中的帧数
+                    print(f"Affine find {len(video_frames)} faces...")
+                    faces, video_frames, boxes, affine_matrices =\
+                        data['faces'], data['video_frames'], data['boxes'], data['affine_matrices']
+                    return faces, video_frames, boxes, affine_matrices
+            except Exception as e:
+                print(f"Failed to load affine transform record: {e}")
+
+        print(f"Affine transforming {len(video_frames)} faces...")
+        affine_transform(video_frames)
+        faces = torch.stack(faces)
+        if is_valid_filepath(pth_path):
+            print(f"Saving affine transform record to {pth_path}")
+            torch.save(
+                {
+                    'faces': faces,
+                    'video_frames': video_frames,
+                    'boxes': boxes,
+                    'affine_matrices': affine_matrices
+                },
+                pth_path,
+                pickle_protocol=pickle.HIGHEST_PROTOCOL  # 设置为最高协议版本，避免文件过大导致的失败
+            )
         return faces, video_frames, boxes, affine_matrices
 
     def restore_video(self, faces, video_frames, boxes, affine_matrices):
