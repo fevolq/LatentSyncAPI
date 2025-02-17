@@ -21,6 +21,7 @@ from scripts import inference
 WORKERS = max(int(os.getenv('WORKERS', 1)), 1)
 INPUT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), './data/input'))
 OUTPUT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), './data/output'))
+PTH_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), './data/pth'))
 print(
     f'【当前配置】\n'
     f'并发：{WORKERS}\n'
@@ -35,6 +36,7 @@ async def lifespan(_: FastAPI):
     os.makedirs(f'{INPUT_DIR}/video', exist_ok=True)
     os.makedirs(f'{INPUT_DIR}/audio', exist_ok=True)
     os.makedirs(OUTPUT_DIR, exist_ok=True)
+    os.makedirs(PTH_DIR, exist_ok=True)
     yield
     print('------------------------End------------------------')
 
@@ -131,6 +133,7 @@ class Inference(BaseModel):
     steps: int = Field(default=20, description='迭代步数')
     scale: float = Field(default=1.5)
     seed: int = Field(default=1247, description='随机种子')
+    with_pth: bool = Field(default=True, description='是否使用pth文件')
 
 
 def prepare(req: Inference) -> tuple:
@@ -147,6 +150,7 @@ def prepare(req: Inference) -> tuple:
     assert os.path.exists(os.path.join(INPUT_DIR, f'video/{video}')), 'video not exists'
     assert os.path.exists(os.path.join(INPUT_DIR, f'audio/{audio}')), 'audio not exists'
     output_video = f'{str(uuid.uuid4())}.mp4'
+    pth_path = os.path.join(PTH_DIR, f'{Path(video).stem}.pth')
 
     options = {
         'video_path': os.path.join(INPUT_DIR, f'video/{video}'),
@@ -157,6 +161,7 @@ def prepare(req: Inference) -> tuple:
         'seed': req.seed,
         'inference_steps': req.steps,
         'guidance_scale': req.scale,
+        'pth_path': pth_path if req.with_pth else '',
     }
     return options, output_video
 

@@ -87,6 +87,7 @@ def main(config, args):
         audio_path=args.audio_path,
         video_out_path=args.video_out_path,
         video_mask_path=args.video_out_path.replace(".mp4", "_mask.mp4"),
+        pth_path=args.pth_path,
         num_frames=config.data.num_frames,
         num_inference_steps=args.inference_steps,
         guidance_scale=args.guidance_scale,

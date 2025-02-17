@@ -370,3 +370,20 @@ def check_ffmpeg_installed():
     result = subprocess.run("ffmpeg -version", stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
     if not result.returncode == 0:
         raise FileNotFoundError("ffmpeg not found, please install it by:\n    $ conda install -c conda-forge ffmpeg")
+
+
+def is_valid_filepath(path):
+    if not path:
+        return False
+
+    # 尝试将路径规范化
+    try:
+        # 使用 os.path.normpath 规范化路径
+        normalized_path = os.path.normpath(path)
+        # 检查路径是否包含非法字符（例如：<>:"/\|?*）
+        illegal_chars = set('<>:"/\\|?*')
+        if any(char in illegal_chars for char in normalized_path):
+            return False
+        return True
+    except (TypeError, AttributeError):
+        return False

@@ -15,6 +15,7 @@ def process_video(
     guidance_scale,
     inference_steps,
     seed,
+    pth_path,
 ):
     # Create the temp directory if it doesn't exist
     output_dir = Path("./data/output")
@@ -39,7 +40,7 @@ def process_video(
     )
 
     # Parse the arguments
-    args = create_args(video_path, audio_path, output_path, inference_steps, guidance_scale, seed)
+    args = create_args(video_path, audio_path, output_path, inference_steps, guidance_scale, seed, pth_path)
 
     try:
         result = main(
@@ -54,7 +55,7 @@ def process_video(
 
 
 def create_args(
-    video_path: str, audio_path: str, output_path: str, inference_steps: int, guidance_scale: float, seed: int
+    video_path: str, audio_path: str, output_path: str, inference_steps: int, guidance_scale: float, seed: int, pth_path: str
 ) -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--inference_ckpt_path", type=str, required=True)
@@ -64,6 +65,7 @@ def create_args(
     parser.add_argument("--inference_steps", type=int, default=20)
     parser.add_argument("--guidance_scale", type=float, default=1.0)
     parser.add_argument("--seed", type=int, default=1247)
+    parser.add_argument("--pth_path", type=str, default='')
 
     return parser.parse_args(
         [
@@ -81,6 +83,8 @@ def create_args(
             str(guidance_scale),
             "--seed",
             str(seed),
+            "--pth_path",
+            str(pth_path),
         ]
     )
 
@@ -130,6 +134,9 @@ with gr.Blocks(title="LatentSync Video Processing") as demo:
             with gr.Row():
                 seed = gr.Number(value=1247, label="Random Seed", precision=0)
 
+            with gr.Row():
+                pth_path = gr.Textbox(label="Pth file path", placeholder="eg. /path/to/model.pth")
+
             process_btn = gr.Button("Process Video")
 
         with gr.Column():
@@ -152,9 +159,14 @@ with gr.Blocks(title="LatentSync Video Processing") as demo:
             guidance_scale,
             inference_steps,
             seed,
+            pth_path,
         ],
         outputs=video_output,
     )
 
 if __name__ == "__main__":
-    demo.launch(inbrowser=True, share=True)
+    demo.launch(
+        inbrowser=True,
+        share=True,
+        server_name='0.0.0.0'
+    )

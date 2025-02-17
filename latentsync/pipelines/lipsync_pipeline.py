@@ -2,6 +2,7 @@
 
 import inspect
 import os
+import pickle
 import shutil
 from typing import Callable, List, Optional, Union
 import subprocess
@@ -31,10 +32,11 @@ import cv2
 
 from ..models.unet import UNet3DConditionModel
 from ..utils.image_processor import ImageProcessor
-from ..utils.util import read_video, read_audio, write_video, check_ffmpeg_installed
+from ..utils.util import read_video, read_audio, write_video, check_ffmpeg_installed, is_valid_filepath
 from ..whisper.audio2feature import Audio2Feature
 import tqdm
 import soundfile as sf
+from latentsync.utils.video_extension import process as process_video
 
 logger = logging.get_logger(__name__)  # pylint: disable=invalid-name
 
@@ -260,19 +262,44 @@ class LipsyncPipeline(DiffusionPipeline):
         images = images.cpu().numpy()
         return images
 
-    def affine_transform_video(self, video_path):
-        video_frames = read_video(video_path, use_decord=False)
+    def affine_transform_video(self, video_path, pth_path=''):
         faces = []
         boxes = []
         affine_matrices = []
-        print(f"Affine transforming {len(video_frames)} faces...")
-        for frame in tqdm.tqdm(video_frames):
-            face, box, affine_matrix = self.image_processor.affine_transform(frame)
-            faces.append(face)
-            boxes.append(box)
-            affine_matrices.append(affine_matrix)
 
-        faces = torch.stack(faces)
+        def affine_transform(frames):
+            for frame in tqdm.tqdm(frames):
+                face, box, affine_matrix = self.image_processor.affine_transform(frame)
+                faces.append(face)
+                boxes.append(box)
+                affine_matrices.append(affine_matrix)
+
+        video_frames = read_video(video_path, use_decord=False)
+        flag = False
+        if pth_path and os.path.exists(pth_path):
+            print(f'Loading affine transform record: {pth_path}')
+            data = torch.load(pth_path)
+            if len(video_frames) <= len(data['video_frames']):    # 视频帧数 < pth中的帧数
+                print(f"Affine find {len(video_frames)} faces...")
+                flag = True
+                faces, video_frames, boxes, affine_matrices =\
+                    data['faces'], data['video_frames'], data['boxes'], data['affine_matrices']
+        if not flag:
+            print(f"Affine transforming {len(video_frames)} faces...")
+            affine_transform(video_frames)
+            faces = torch.stack(faces)
+            if is_valid_filepath(pth_path):
+                print(f"Saving affine transform record to {pth_path}")
+                torch.save(
+                    {
+                        'faces': faces,
+                        'video_frames': video_frames,
+                        'boxes': boxes,
+                        'affine_matrices': affine_matrices
+                    },
+                    pth_path,
+                    pickle_protocol=pickle.HIGHEST_PROTOCOL  # 设置为最高协议版本，避免文件过大导致的失败
+                )
         return faces, video_frames, boxes, affine_matrices
 
     def restore_video(self, faces, video_frames, boxes, affine_matrices):
@@ -299,6 +326,7 @@ class LipsyncPipeline(DiffusionPipeline):
         audio_path: str,
         video_out_path: str,
         video_mask_path: str = None,
+        pth_path: str = '',
         num_frames: int = 16,
         video_fps: int = 25,
         audio_sample_rate: int = 16000,
@@ -325,7 +353,7 @@ class LipsyncPipeline(DiffusionPipeline):
         self.image_processor = ImageProcessor(height, mask=mask, device="cuda")
         self.set_progress_bar_config(desc=f"Sample frames: {num_frames}")
 
-        faces, original_video_frames, boxes, affine_matrices = self.affine_transform_video(video_path)
+        faces, original_video_frames, boxes, affine_matrices = self.affine_transform_video(video_path, pth_path)
         audio_samples = read_audio(audio_path)
 
         # 1. Default height and width to unet

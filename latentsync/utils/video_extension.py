@@ -64,14 +64,14 @@ def process(*, audio_file, video_file, output_file):
         looped_video = os.path.join(tempfile.gettempdir(),
                                     f'looped_{int(time.time())}_{os.path.basename(video_file)}')
         concat_cmd = (
-            f"ffmpeg {' '.join(concat_cmd_parts)} "
+            f"ffmpeg -loglevel error {' '.join(concat_cmd_parts)} "
             f"-filter_complex \"{filter_complex}\" "
             f"-map [outv] -map [outa] {looped_video}"
         )
         subprocess.run(concat_cmd, shell=True)
 
         # 裁剪至音频时长
-        final_cmd = f"ffmpeg -i {looped_video} -t {duration} -c:v copy -c:a copy {output_file} -y"
+        final_cmd = f"ffmpeg -loglevel error -i {looped_video} -t {duration} -c:v copy -c:a copy {output_file} -y"
         subprocess.run(final_cmd, shell=True)
 
         # 清理临时文件
