@@ -376,12 +376,16 @@ def is_valid_filepath(path):
     if not path:
         return False
 
-    # 尝试将路径规范化
     try:
-        # 使用 os.path.normpath 规范化路径
+        # 规范化路径
         normalized_path = os.path.normpath(path)
-        # 检查路径是否包含非法字符（例如：<>:"/\|?*）
-        illegal_chars = set('<>:"/\\|?*')
+
+        # 定义非法字符集合（Windows 和类 Unix 系统）
+        illegal_chars = set('<>"|?*')  # Windows 非法字符
+        if os.name == 'nt':  # Windows 系统
+            illegal_chars.add('/')  # Windows 不允许正斜杠
+        else:  # 类 Unix 系统
+            illegal_chars.add('\0')  # 类 Unix 系统不允许空字符
         if any(char in illegal_chars for char in normalized_path):
             return False
         return True
