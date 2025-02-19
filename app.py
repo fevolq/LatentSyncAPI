@@ -150,7 +150,7 @@ def prepare(req: Inference) -> tuple:
     assert os.path.exists(os.path.join(INPUT_DIR, f'video/{video}')), 'video not exists'
     assert os.path.exists(os.path.join(INPUT_DIR, f'audio/{audio}')), 'audio not exists'
     output_video = f'{str(uuid.uuid4())}.mp4'
-    pth_path = os.path.join(PTH_DIR, req.pth)
+    pth_path = os.path.join(PTH_DIR, req.pth) if req.pth else req.pth
 
     options = {
         'video_path': os.path.join(INPUT_DIR, f'video/{video}'),
