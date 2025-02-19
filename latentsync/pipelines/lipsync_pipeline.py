@@ -6,6 +6,7 @@ import pickle
 import shutil
 from typing import Callable, List, Optional, Union
 import subprocess
+import time
 
 import numpy as np
 import torch
@@ -276,20 +277,25 @@ class LipsyncPipeline(DiffusionPipeline):
         if pth_path and os.path.exists(pth_path):
             print(f'Loading affine transform record: {pth_path}')
             try:
+                start = time.time()
                 data = torch.load(pth_path, pickle_module=pickle, map_location=lambda storage, loc: storage)
+                print(f"Affine transform record loaded in {int(time.time() - start)} s")
                 if len(video_frames) <= len(data['video_frames']):    # 视频帧数 < pth中的帧数
-                    print(f"Affine find {len(video_frames)} faces...")
+                    print(f"Video find {len(video_frames)} faces")
                     faces, video_frames, boxes, affine_matrices =\
                         data['faces'], data['video_frames'], data['boxes'], data['affine_matrices']
                     return faces, video_frames, boxes, affine_matrices
+                else:
+                    print(f"Affine transform record find {len(data['video_frames'])} faces...")
             except Exception as e:
                 print(f"Failed to load affine transform record: {e}")
 
         print(f"Affine transforming {len(video_frames)} faces...")
         affine_transform(video_frames)
         faces = torch.stack(faces)
-        if is_valid_filepath(pth_path):
+        if is_valid_filepath(pth_path) and not os.path.exists(pth_path):    # 不存在时才保存，避免覆盖
             print(f"Saving affine transform record to {pth_path}")
+            start = time.time()
             torch.save(
                 {
                     'faces': faces,
@@ -300,6 +306,7 @@ class LipsyncPipeline(DiffusionPipeline):
                 pth_path,
                 pickle_protocol=pickle.HIGHEST_PROTOCOL  # 设置为最高协议版本，避免文件过大导致的失败
             )
+            print(f"Affine transform record saved to {pth_path}, spent: {int(time.time() - start)}")
         return faces, video_frames, boxes, affine_matrices
 
     def restore_video(self, faces, video_frames, boxes, affine_matrices):

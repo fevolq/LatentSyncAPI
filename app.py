@@ -130,10 +130,10 @@ def download(file: str):
 class Inference(BaseModel):
     video: str = Field(description='视频')
     audio: str = Field(description='音频')
+    pth: str = Field(default='', description='pth文件')
     steps: int = Field(default=20, description='迭代步数')
     scale: float = Field(default=1.5)
     seed: int = Field(default=1247, description='随机种子')
-    with_pth: bool = Field(default=True, description='是否使用pth文件')
 
 
 def prepare(req: Inference) -> tuple:
@@ -150,18 +150,18 @@ def prepare(req: Inference) -> tuple:
     assert os.path.exists(os.path.join(INPUT_DIR, f'video/{video}')), 'video not exists'
     assert os.path.exists(os.path.join(INPUT_DIR, f'audio/{audio}')), 'audio not exists'
     output_video = f'{str(uuid.uuid4())}.mp4'
-    pth_path = os.path.join(PTH_DIR, f'{Path(video).stem}.pth')
+    pth_path = os.path.join(PTH_DIR, req.pth)
 
     options = {
         'video_path': os.path.join(INPUT_DIR, f'video/{video}'),
         'audio_path': os.path.join(INPUT_DIR, f'audio/{audio}'),
         'video_out_path': os.path.join(OUTPUT_DIR, output_video),
+        'pth_path': pth_path,
 
         'inference_ckpt_path': 'checkpoints/latentsync_unet.pt',
         'seed': req.seed,
         'inference_steps': req.steps,
         'guidance_scale': req.scale,
-        'pth_path': pth_path if req.with_pth else '',
     }
     return options, output_video
 
