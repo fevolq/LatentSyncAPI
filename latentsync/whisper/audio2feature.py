@@ -109,7 +109,7 @@ class Audio2Feature:
             encoder_embeddings = encoder_embeddings.squeeze(0)
             start_idx = int(emb["start"])
             end_idx = int(emb["end"])
-            emb_end_idx = int((end_idx - start_idx) / 2)
+            emb_end_idx = int((end_idx - start_idx))
             embed_list.append(encoder_embeddings[:emb_end_idx])
         concatenated_array = torch.from_numpy(np.concatenate(embed_list, axis=0))
         return concatenated_array

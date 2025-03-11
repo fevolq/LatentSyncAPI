@@ -83,6 +83,12 @@ def transcribe(
         decode_options["fp16"] = False
 
     mel = log_mel_spectrogram(audio)
+
+    pad_frames = 64
+    # 对 Mel 频谱图进行 padding
+    import torch.nn.functional as F
+    if pad_frames > 0:
+        mel = F.pad(mel, (0, pad_frames))  # 在最后一维 padding 0
    
     all_segments = []
     def add_segment(
@@ -100,12 +106,15 @@ def transcribe(
     num_frames = mel.shape[-1]
     seek = 0
     previous_seek_value = seek
-    sample_skip = 3000 # 
+    # sample_skip = 3000 #
+    overlap = 1000  # 重叠帧数
+    step = N_FRAMES - overlap  # 步长 = 3000 - 1000 = 2000
+
     with tqdm.tqdm(total=num_frames, unit='frames', disable=verbose is not False) as pbar:
         while seek < num_frames:
             # seek是开始的帧数
-            end_seek = min(seek + sample_skip, num_frames)
-            segment = pad_or_trim(mel[:,seek:seek+sample_skip], N_FRAMES).to(model.device).to(dtype)
+            end_seek = min(seek + N_FRAMES, num_frames)
+            segment = pad_or_trim(mel[:,seek:end_seek], N_FRAMES).to(model.device).to(dtype)
             
             single = segment.ndim == 2
             if single:
@@ -114,16 +123,38 @@ def transcribe(
                 segment = segment.half()
             audio_features, embeddings  = model.encoder(segment, include_embeddings = True)
             
-            encoder_embeddings = embeddings
+            # encoder_embeddings = embeddings
             #print(f"encoder_embeddings shape {encoder_embeddings.shape}")
+            # 根据窗口位置处理重叠部分
+            if seek == 0:
+                # 第一个窗口：保存0到2750帧
+                save_start = 0
+                save_end = (step + overlap // 2) // 2  # 2500 + 250 = 2750
+                current_embeddings = embeddings[:, :, :save_end, :]
+            elif end_seek == num_frames:
+                # 最后一个窗口：保存前250帧（重叠部分）到末尾
+                save_start = (seek + overlap // 2) // 2  # 前250帧重叠
+                save_end = end_seek // 2
+                current_embeddings = embeddings[:, :, overlap // 4:, :]
+            else:
+                # 中间窗口：保存seek-250到seek+2750
+                save_start = (seek + overlap // 2) // 2
+                save_end = (seek + step + overlap // 2) // 2  # seek + 2500 + 250
+                current_embeddings = embeddings[:, :, overlap // 4:-overlap // 4, :]
+
             add_segment(
-                start=seek,
-                end=end_seek,
-                #text_tokens=tokens,
-                #result=result,
-                encoder_embeddings=encoder_embeddings,
+                start=save_start,
+                end=save_end,
+                # text_tokens=tokens,
+                # result=result,
+                # encoder_embeddings=encoder_embeddings,
+                encoder_embeddings=current_embeddings,
             )
-            seek+=sample_skip
+            # 更新前一个窗口的嵌入向量
+            previous_embeddings = embeddings
+            seek += step
+            pbar.update(step)
+            # seek+=sample_skip
     
     return dict(segments=all_segments)
 
